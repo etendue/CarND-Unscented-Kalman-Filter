@@ -34,8 +34,13 @@ private:
   ///* process noise matrix
   MatrixXd Q_;
 
+  ///* lidar measurement noise matrix
+  MatrixXd R_lidar_;
   ///* radar measurement noise matrix
-  MatrixXd R_;
+  MatrixXd R_radar_;
+
+  ///*  difference between predicted sigma points to predicted mean, temporal variable
+  MatrixXd Xsig_pred_diff_;
 
   ///* time when the state is true, in us
   long long time_us_;

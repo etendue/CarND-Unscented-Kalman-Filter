@@ -64,11 +64,18 @@ UKF::UKF() {
   Q_(0,0) = std_a_*std_a_;
   Q_(1,1) = std_yawdd_*std_yawdd_;
 
+
   // initialize radar measurement noise matrix
-  R_= MatrixXd::Zero(3,3);
-  R_(0,0) = std_radr_ * std_radr_;
-  R_(1,1) = std_radphi_ * std_radphi_;
-  R_(2,2) = std_radrd_ * std_radrd_;
+  R_lidar_ = MatrixXd::Zero(2, 2);
+  R_lidar_(0, 0) = std_laspx_ * std_laspx_;
+  R_lidar_(1, 1) = std_laspy_ * std_laspy_;
+
+
+  // initialize radar measurement noise matrix
+  R_radar_= MatrixXd::Zero(3,3);
+  R_radar_(0,0) = std_radr_ * std_radr_;
+  R_radar_(1,1) = std_radphi_ * std_radphi_;
+  R_radar_(2,2) = std_radrd_ * std_radrd_;
 
   // initialize the predict sigma points matrix
   Xsig_pred_ = MatrixXd::Zero(n_x_,2 * n_aug_+1);
@@ -239,8 +246,16 @@ void UKF::Prediction(double delta_t) {
   //predict state mean
   x_ = Xsig_pred_ * weights_;
   //predict state covariance matrix
-  MatrixXd Diff = Xsig_pred_ - x_ * MatrixXd::Ones(1,2*n_aug_ +1);
-  P_ = Diff * weights_.asDiagonal()* Diff.transpose();
+  Xsig_pred_diff_= Xsig_pred_ - x_ * MatrixXd::Ones(1,2*n_aug_ +1);
+  //Adjust the angle to between -Pi to Pi
+  for (unsigned int i = 0; i < 2 * n_aug_ + 1; i++) {
+    while (Xsig_pred_diff_(3, i) > M_PI)
+      Xsig_pred_diff_(3, i) -= 2 * M_PI;
+    while (Xsig_pred_diff_(3, i) < -M_PI)
+      Xsig_pred_diff_(3, i) += 2 * M_PI;
+  }
+  P_ = Xsig_pred_diff_ * weights_.asDiagonal()* Xsig_pred_diff_.transpose();
+
 }
 
 /**
@@ -256,6 +271,29 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
+
+  assert(meas_package.raw_measurements_.size() == 2);
+  //MatrixXd Zsig_pred = Xsig_pred_.topRows(2);
+  VectorXd z_pred_mean = x_.head(2);
+
+  //MatrixXd S = MatrixXd::Zero(2, 2);
+
+  //create a Matrix of difference between Zsig to Zsig_mean
+  //MatrixXd Zdiff = Xsig_pred_diff_.topRows(2);
+
+  //S = Zdiff * weights_.asDiagonal() * Zdiff.transpose() + R_lidar_;
+  MatrixXd S = P_.topLeftCorner(2,2) + R_lidar_;
+
+  // create Cross-correlation Matrix
+  //MatrixXd Tc = Xsig_pred_diff_ * weights_.asDiagonal() * Zdiff.transpose();
+  MatrixXd Tc = P_.topLeftCorner(n_x_,2);
+  // create Kalman Gain Matrix
+  MatrixXd K = Tc * S.inverse();
+
+  VectorXd z = meas_package.raw_measurements_;
+
+  x_ += K * (z - z_pred_mean);
+  P_ -= K * S * K.transpose();
 }
 
 /**
@@ -264,15 +302,17 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
  */
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
   /**
-  TODO:
+  TODO:Done
 
   Complete this function! Use radar data to update the belief about the object's
   position. Modify the state vector, x_, and covariance, P_.
 
   You'll also need to calculate the radar NIS.
   */
-  int n_z = 3;
-  MatrixXd Zsig_pred = MatrixXd(n_z, 2*n_aug_ +1);
+
+  assert(meas_package.raw_measurements_.size()==3);
+
+  MatrixXd Zsig_pred = MatrixXd(3, 2*n_aug_ +1);
   //transform sigma points into measurement space
   for(unsigned int i = 0; i< 2* n_aug_ +1; i++){
     VectorXd col = Xsig_pred_.col(i);
@@ -288,13 +328,33 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     r_dot = (px * v*cos(yaw) + py*v*sin(yaw))/r;
     Zsig_pred.col(i)<< r,phi,r_dot;
   }
-  VectorXd z_pred_mean = VectorXd::Zero(n_z);
+  VectorXd z_pred_mean = VectorXd::Zero(3);
 
   z_pred_mean = Zsig_pred * weights_;
 
-  MatrixXd S = MatrixXd::Zero(n_z,n_z);
+  MatrixXd S = MatrixXd::Zero(3,3);
 
+  //create a Matrix of difference between Zsig to Zsig_mean
+  MatrixXd Zdiff = Zsig_pred - z_pred_mean * MatrixXd::Ones(1,2*n_aug_+1);
+  //Adjust the angle to between -Pi to Pi
+  for(unsigned int i= 0; i< 2*n_aug_ +1;i++){
+    while (Zdiff(1, i) > M_PI)
+      Zdiff(1, i) -= 2 * M_PI;
+    while (Zdiff(1, i) < -M_PI)
+      Zdiff(1, i) += 2 * M_PI;
+  }
 
+  S = Zdiff * weights_.asDiagonal()*Zdiff.transpose() + R_radar_;
 
+  // create Cross-correlation Matrix
+  MatrixXd Tc = Xsig_pred_diff_ * weights_.asDiagonal() * Zdiff.transpose();
+
+  // create Kalman Gain Matrix
+  MatrixXd K = Tc * S.inverse();
+
+  VectorXd z = meas_package.raw_measurements_;
+
+  x_ += K*(z - z_pred_mean);
+  P_ -= K * S* K.transpose();
 
 }
