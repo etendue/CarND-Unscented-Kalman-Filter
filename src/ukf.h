@@ -78,6 +78,10 @@ private:
   ///* Sigma point spreading parameter
   double lambda_;
 
+  ///* file stream to record NIS
+  std::ofstream ofs_nis_radar_;
+  std::ofstream ofs_nis_lidar_;
+
 public:
   /**
    * Constructor
