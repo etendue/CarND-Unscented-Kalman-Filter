@@ -125,9 +125,32 @@ private:
    */
   void ProcessFirstMeasurement(MeasurementPackage meas_package);
 
+  /**
+   * unit test to verify the algorithm for augmented sigma points process.
+   */
   void test();
+  /**
+   * generate augmented sigma points
+   * @param state current mean of the state vector
+   * @param P current Covariant matrix
+   * @param Q current process noise matrix
+   * @return generated matrix of augmented sigma points
+   */
   MatrixXd generateAugmentedSigmaPoints(const VectorXd& state,const MatrixXd& P,const MatrixXd& Q);
+  /**
+    * predict augmented sigma points
+    * @param delta_t elapsed time since last processing
+    * @param Xsig_aug Matrix of augmented sigma points before prediction
+    * @return Matrix of predicted augmented sigma points
+    */
   MatrixXd predictAugmentedSigmaPoints(const double delta_t,const MatrixXd& Xsig_aug);
+  /**
+    * calculate the mean and Covariant Matrix
+    * @param sgima_p Matrix of augmented sigma points
+    * @param[out] state mean of augmented sigma points
+    * @param[out] Q  process noise matrix
+    * @return matrix of deviation of sigma points to mean
+    */
   MatrixXd calculatePredictedMeanAndCovariantMatrix(const MatrixXd& sigma_p,VectorXd& state,MatrixXd& P);
 };
 
