@@ -125,6 +125,11 @@ private:
    */
   void ProcessFirstMeasurement(MeasurementPackage meas_package);
 
+  void test();
+  MatrixXd generateAugmentedSigmaPoints(const VectorXd& state,const MatrixXd& P,const MatrixXd& Q);
+  MatrixXd predictAugmentedSigmaPoints(const double delta_t,const MatrixXd& Xsig_aug);
+  MatrixXd calculatePredictedMeanAndCovariantMatrix(const MatrixXd& sigma_p,VectorXd& state,MatrixXd& P);
 };
+
 
 #endif /* UKF_H */
