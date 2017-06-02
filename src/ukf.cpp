@@ -121,6 +121,10 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   }else{
 
     //do prediction
+    while(delta_t > 0.1){
+      delta_t -= 0.1;
+      Prediction(0.1);
+    }
     Prediction(delta_t);
 
     // do update
@@ -232,9 +236,12 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     double yawd = col[4];
 
     double r, phi, r_dot;
-    r = sqrt(px*px + py*py);
-    phi = atan2(py,px);
-    r= max(r,0.001);
+    // numerical stability check
+    if(fabs(px)<0.005){ // 5mm distance
+      px = copysign(0.005,px);
+    }
+    r = sqrt(px*px + py*py);//r will not be zero
+    phi = atan2(py,px); // px,py will not be both zeros
     r_dot = (px * v*cos(yaw) + py*v*sin(yaw))/r;
     Zsig_pred.col(i)<< r,phi,r_dot;
   }
@@ -310,6 +317,9 @@ void UKF::ProcessFirstMeasurement(MeasurementPackage meas_package) {
     x_[1] = meas_package.raw_measurements_[1];
     is_initialized_ = true;
   }
+  //numerical stability check
+  if(fabs(x_[0]) < 0.005)
+    x_[0]= copysign(0.005,x_[0]);
 }
 
 MatrixXd UKF::generateAugmentedSigmaPoints(const VectorXd& state,const MatrixXd& P,const MatrixXd& Q) {
